@@ -270,7 +270,7 @@ public class Proxy {
         }
         String param; // parametr komendy
         String command = in.next();
-        String input = command;// komenda przekazywana dalej
+        StringBuilder input = new StringBuilder(command);// komenda przekazywana dalej
         String val;
         String key;
         log("CMD: command=" + command);
@@ -282,7 +282,7 @@ public class Proxy {
                     return "NA";
                 }
                 param = in.next();
-                input += " " + param;
+                input.append(" ").append(param);
                 log("CMD GET: param=" + param);
                 switch (param) {
                     case "NAMES":
@@ -298,12 +298,12 @@ public class Proxy {
                             return "NA";
                         }
                         key = in.next();
-                        input += " " + key+" ";
+                        input.append(" ").append(key).append(" ");
                         log("CMD GET VALUE: key=" + key);
                         for (NodeInfo n : knownNodes) {
                             if (n.directKeys.contains(key)) {
                                 log("ROUTE: forwarding to " + n.address + ":" + n.port + " via " + (n.isTCP ? "TCP" : (n.isUDP ? "UDP" : "?")));
-                                output = n.isTCP ? new StringBuilder(sendTcpCommand(n.address, n.port, input)) : (n.isUDP ? new StringBuilder(sendUdpCommand(n.address, n.port, input)) : null);
+                                output = n.isTCP ? new StringBuilder(sendTcpCommand(n.address, n.port, input.toString())) : (n.isUDP ? new StringBuilder(sendUdpCommand(n.address, n.port, input.toString())) : null);
                                 return (output != null) ? output.toString() : "NA";
                             }
                         }
@@ -324,11 +324,11 @@ public class Proxy {
                     return "NA";
                 }
                 val = in.next();
-                input += " " + key + " " + val;
+                input.append(" ").append(key).append(" ").append(val);
                 for (NodeInfo n : knownNodes) {
                     if (n.directKeys.contains(key)) {
                         log("ROUTE SET: forwarding to " + n.address + ":" + n.port + " via " + (n.isTCP ? "TCP" : (n.isUDP ? "UDP" : "?")));
-                        String resp = n.isTCP ? sendTcpCommand(n.address, n.port, input) : (n.isUDP ? sendUdpCommand(n.address, n.port, input) : null);
+                        String resp = n.isTCP ? sendTcpCommand(n.address, n.port, input.toString()) : (n.isUDP ? sendUdpCommand(n.address, n.port, input.toString()) : null);
                         log("ROUTE SET: response <- " + resp);
                         return (resp != null) ? resp : "NA";
                     }
@@ -341,26 +341,36 @@ public class Proxy {
                 System.exit(0);
             case "PX" :
                 param = in.next();
+                input = new StringBuilder(command + " " + param);
                 switch (param){
                     case "HELLO":
                         return "PX OK";
                     case "GET":
                         String param2 = in.next();
+                        input = new StringBuilder(" " + param2);
                         switch(param2){
                             case "NAMES":
                                 //TODO zwracanie listy wszystkich posiadanych kluczy;
                                 output = new StringBuilder("PX OK");
                                 ArrayList<String> names = (ArrayList<String>) getKnownNames();
-                                output.append(" ").append(names.size());
-                                names.forEach(n -> output.append(" ").append(n));
+                                names = new ArrayList<>(new LinkedHashSet<>(names));
+                                output.append(" ").append(names.size()).append(" ").append(String.join(" ", names));
                                 return output.toString();
                             case "VALUE":
                                  key = in.next();
                                  //TODO szukanie podanego klucza w swoim drzewie
-                                if (){
-
-                                }
                                 //odp  PX RESP <n> VALUE
+                                for (NodeInfo n : knownNodes) {
+                                    if (n.directKeys.contains(key)) {
+                                        input.append(" ").append(key);
+                                        if (n.isTCP) {
+                                            output = new StringBuilder(sendTcpCommand(n.address, n.port, input.toString()));
+                                        } else {
+                                            output = new StringBuilder(sendUdpCommand(n.address, n.port, input.toString()));
+                                        }
+                                        return output.toString();
+                                    }
+                                }
                         }
                     case "SET":
                         key = in.next();
