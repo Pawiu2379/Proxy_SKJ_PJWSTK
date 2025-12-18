@@ -13,14 +13,22 @@ class NodeInfo {
     int port;
     boolean isTCP;
     boolean isUDP;
+    boolean isProxy;
     Set<String> directKeys;
 
     public NodeInfo(String address, int port) {
         this.address = address;
         this.port = port;
         this.directKeys = new HashSet<>();
-        this.isTCP = isTcpPort(address, port, 500);
-        this.isUDP = isUdpPort(address, port, 500);
+        this.isProxy = isProxy(address,port,500 );
+        if (!isProxy){
+            this.isTCP = isTcpPort(address, port, 500);
+            this.isUDP = isUdpPort(address, port, 500);
+        }else{
+            this.isTCP = true;
+            this.isUDP = true;
+            this.directKeys = null;
+        }
     }
 
     //    Sprawdzanie czy serwer odpowiada na tcp
@@ -35,14 +43,7 @@ class NodeInfo {
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
             String response = in.readLine();
             if (response != null && response.startsWith("OK")) {
-                String[] t = response.trim().split("\\s+");
-                if (t.length >= 2) {
-                    int n = Integer.parseInt(t[1]);
-                    for (int i = 0; i < n && 2 + i < t.length; i++) {
-                        this.directKeys.add(t[2 + i]);
-                    }
-                }
-                return true;
+                return handleResponse(response);
             } else return false;
         } catch (Exception e) {
             return false;
@@ -64,14 +65,7 @@ class NodeInfo {
 
             String response = new String(recvPacket.getData(), 0, recvPacket.getLength()).trim();
             if (response.startsWith("OK")) {
-                String[] t = response.trim().split("\\s+");
-                if (t.length >= 2) {
-                    int n = Integer.parseInt(t[1]);
-                    for (int i = 0; i < n && 2 + i < t.length; i++) {
-                        this.directKeys.add(t[2 + i]);
-                    }
-                }
-                return true;
+                return handleResponse(response);
             } else return false;
 
 
@@ -81,8 +75,31 @@ class NodeInfo {
     }
 
     //    sprawdzanie czy host obsługuje oba połączenia jesli tak, obstawiamy, że jest to proxy
-    public boolean isProxy() {
-        return this.isTCP && this.isUDP;
+    public boolean isProxy(String address, int port, int timeoutMs) {
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(address, port), timeoutMs);
+            socket.setSoTimeout(timeoutMs);
+
+            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+            out.println("PX HELLO");
+
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+            String response = in.readLine();
+            return response != null && response.startsWith("PX OK");
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private boolean handleResponse(String response) {
+        String[] t = response.trim().split("\\s+");
+        if (t.length >= 2) {
+            int n = Integer.parseInt(t[1]);
+            for (int i = 0; i < n && 2 + i < t.length; i++) {
+                this.directKeys.add(t[2 + i]);
+            }
+        }
+        return true;
     }
 }
 
@@ -90,7 +107,8 @@ public class Proxy {
 
     private final int port;
     // znane hosty
-    private final List<NodeInfo> knownNodes;
+    private final List<NodeInfo> knownNodes= new ArrayList<>();
+    private final List<NodeInfo> knownProxis= new ArrayList<>();
     private final ExecutorService threadPool = Executors.newCachedThreadPool();
     private ServerSocket tcpServer;
     private DatagramSocket udpServer;
@@ -98,7 +116,13 @@ public class Proxy {
 
     public Proxy(int port, List<NodeInfo> nodes) {
         this.port = port;
-        this.knownNodes = nodes;
+        for (NodeInfo node : nodes){
+            if (node.isProxy) {
+                knownProxis.add(node);
+            } else {
+                knownNodes.add(node);
+            }
+        }
     }
 
     public static void main(String[] args) {
@@ -139,6 +163,15 @@ public class Proxy {
         for (NodeInfo node : this.knownNodes) {
             names.addAll(node.directKeys);
         }
+        for (NodeInfo p : knownProxis) {
+            String resp = sendTcpCommand(p.address, p.port, "PX GET NAMES");
+            // albo UDP, zależnie od p.isTCP / p.isUDP
+            if (resp != null && resp.startsWith("PX OK")) {
+                String[] t = resp.split("\\s+");
+                int n = Integer.parseInt(t[2]);
+                names.addAll(Arrays.asList(t).subList(3, n + 3));
+            }
+        }
         return names;
     }
 
@@ -175,7 +208,7 @@ public class Proxy {
     }
 
     private void receiveUdpLoop() {
-        byte[] buffer = new byte[256];
+        byte[] buffer = new byte[1024];
         while (!udpServer.isClosed()) {
             DatagramPacket pkt = new DatagramPacket(buffer, buffer.length);
             try {
@@ -196,10 +229,9 @@ public class Proxy {
                     break;
                 }
                 log("UDP: SocketException: " + se);
-                se.printStackTrace();
+
             } catch (IOException e) {
                 log("UDP: IOException: " + e);
-                e.printStackTrace();
             }
         }
     }
@@ -214,10 +246,8 @@ public class Proxy {
             } catch (SocketException se) {
                 if (tcpServer.isClosed()) break;
                 log("TCP: SocketException: " + se);
-                se.printStackTrace();
             } catch (IOException e) {
                 log("TCP: IOException: " + e);
-                e.printStackTrace();
             }
         }
     }
@@ -227,10 +257,9 @@ public class Proxy {
             log("TCP: handling client " + client.getInetAddress() + ":" + client.getPort());
             String response = handleCommand(in);
             log("TCP: response -> " + response);
-            if (response != null) out.println(response);
+            out.println(response);
         } catch (IOException e) {
             log("TCP: client error: " + e);
-            e.printStackTrace();
         }
     }
 
@@ -242,8 +271,10 @@ public class Proxy {
         String param; // parametr komendy
         String command = in.next();
         String input = command;// komenda przekazywana dalej
+        String val;
+        String key;
         log("CMD: command=" + command);
-        StringBuilder output = new StringBuilder();//odpowiedz
+        StringBuilder output;//odpowiedz
         switch (command) {
             case "GET":
                 if (!in.hasNext()) {
@@ -256,6 +287,7 @@ public class Proxy {
                 switch (param) {
                     case "NAMES":
                         LinkedHashSet<String> uniq = new LinkedHashSet<>(getKnownNames());
+
                         List<String> list = new ArrayList<>(uniq);
                         output = new StringBuilder("OK " + list.size() + (list.isEmpty() ? "" : " " + String.join(" ", list)));
                         log(output.toString());
@@ -265,8 +297,8 @@ public class Proxy {
                             log("CMD GET VALUE: missing key -> NA");
                             return "NA";
                         }
-                        String key = in.next();
-                        input += " " + key;
+                        key = in.next();
+                        input += " " + key+" ";
                         log("CMD GET VALUE: key=" + key);
                         for (NodeInfo n : knownNodes) {
                             if (n.directKeys.contains(key)) {
@@ -282,31 +314,60 @@ public class Proxy {
                         return "NA";
                 }
             case "SET":
-                String name = in.next();
                 if (!in.hasNext()) {
                     log("CMD SET: missing key -> NA");
                     return "NA";
                 }
-                String val = in.next();
+                key = in.next();
                 if (!in.hasNext()) {
                     log("CMD SET: missing value -> NA");
                     return "NA";
                 }
-                input += " " + name + " " + val;
+                val = in.next();
+                input += " " + key + " " + val;
                 for (NodeInfo n : knownNodes) {
-                    if (n.directKeys.contains(name)) {
+                    if (n.directKeys.contains(key)) {
                         log("ROUTE SET: forwarding to " + n.address + ":" + n.port + " via " + (n.isTCP ? "TCP" : (n.isUDP ? "UDP" : "?")));
                         String resp = n.isTCP ? sendTcpCommand(n.address, n.port, input) : (n.isUDP ? sendUdpCommand(n.address, n.port, input) : null);
                         log("ROUTE SET: response <- " + resp);
                         return (resp != null) ? resp : "NA";
                     }
                 }
-                log("ROUTE SET: no node holds key=" + name + " -> NA");
+                log("ROUTE SET: no node holds key=" + key + " -> NA");
                 return "NA";
             case "QUIT":
                 System.out.println("Terminating");
                 this.stop();
                 System.exit(0);
+            case "PX" :
+                param = in.next();
+                switch (param){
+                    case "HELLO":
+                        return "PX OK";
+                    case "GET":
+                        String param2 = in.next();
+                        switch(param2){
+                            case "NAMES":
+                                //TODO zwracanie listy wszystkich posiadanych kluczy;
+                                output = new StringBuilder("PX OK");
+                                ArrayList<String> names = (ArrayList<String>) getKnownNames();
+                                output.append(" ").append(names.size());
+                                names.forEach(n -> output.append(" ").append(n));
+                                return output.toString();
+                            case "VALUE":
+                                 key = in.next();
+                                 //TODO szukanie podanego klucza w swoim drzewie
+                                if (){
+
+                                }
+                                //odp  PX RESP <n> VALUE
+                        }
+                    case "SET":
+                        key = in.next();
+                        val = in.next();
+                        //TODO zmienienie klucza w podanym nodzie;
+                }
+
             default:
                 log("CMD: unknown command=" + command + " -> NA");
                 return "NA";
@@ -320,7 +381,7 @@ public class Proxy {
             DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, InetAddress.getByName(address), port);
             socket.send(sendPacket);
 
-            byte[] recvBuf = new byte[512];
+            byte[] recvBuf = new byte[1024];
             DatagramPacket recvPacket = new DatagramPacket(recvBuf, recvBuf.length);
             socket.setSoTimeout(1000);
             socket.receive(recvPacket);
@@ -329,8 +390,7 @@ public class Proxy {
             return resp;
         } catch (Exception e) {
             log("UDP x " + address + ":" + port + " | " + e);
-            e.printStackTrace();
-            return null;
+            return "NA";
         }
     }
 
@@ -344,10 +404,8 @@ public class Proxy {
             return resp;
         } catch (IOException e) {
             log("TCP x " + address + ":" + port + " | " + e);
-            e.printStackTrace();
-            return null;
+            return "NA";
         }
     }
-
 
 }
