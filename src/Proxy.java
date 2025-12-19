@@ -27,7 +27,7 @@ class NodeInfo {
         }else{
             this.isTCP = true;
             this.isUDP = true;
-            this.directKeys = null;
+            this.directKeys = new HashSet<>();
         }
     }
 
@@ -336,7 +336,20 @@ public class Proxy {
                 log("ROUTE SET: no node holds key=" + key + " -> NA");
                 return "NA";
             case "QUIT":
-                System.out.println("Terminating");
+                log("Terminating all known Nodes");
+                for (NodeInfo n : knownNodes){
+                    log("QUIT -> " + n.address + ":" + n.port + " UDP=" + n.isUDP + " TCP=" + n.isTCP + " isProxy=" + n.isProxy);
+                    if (n.isTCP) {
+                        sendTcpOneWay(n.address, n.port, "QUIT ");
+                    } else {
+                        sendUdpOneWay(n.address, n.port, "QUIT ");
+                    }
+                }
+                log("Terminating all known Proxies");
+                for (NodeInfo p : knownProxis){
+                    sendTcpCommand(p.address,p.port,"QUIT ");
+                }
+                log("Terminating myself");
                 this.stop();
                 System.exit(0);
             case "PX" :
@@ -363,6 +376,7 @@ public class Proxy {
                                 for (NodeInfo n : knownNodes) {
                                     if (n.directKeys.contains(key)) {
                                         input.append(" ").append(key);
+                                        log(input.toString());
                                         if (n.isTCP) {
                                             output = new StringBuilder(sendTcpCommand(n.address, n.port, input.toString()));
                                         } else {
@@ -371,7 +385,8 @@ public class Proxy {
                                         return output.toString();
                                     }else{
                                         for(NodeInfo p : knownProxis){
-                                            //TODO Przesląc do proxy
+//                                            TODO Przesląc do proxy
+
                                         }
                                     }
                                 }
@@ -423,4 +438,30 @@ public class Proxy {
         }
     }
 
+    private void sendUdpOneWay(String address, int port, String input) {
+        log("UDP-> " + address + ":" + port + " | " + input + " (one-way)");
+        try (DatagramSocket socket = new DatagramSocket()) {
+            byte[] sendData = input.getBytes(StandardCharsets.UTF_8);
+            DatagramPacket sendPacket = new DatagramPacket(
+                    sendData, sendData.length,
+                    InetAddress.getByName(address), port
+            );
+            socket.send(sendPacket);
+            log("UDP.. sent (no response expected)");
+        } catch (Exception e) {
+            log("UDP x " + address + ":" + port + " | " + e);
+        }
+    }
+
+    private void sendTcpOneWay(String address, int port, String input) {
+        log("TCP-> " + address + ":" + port + " | " + input + " (one-way)");
+        try (Socket socket = new Socket(address, port);
+             PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
+            out.println(input);
+            // brak readLine()
+            log("TCP.. sent (no response expected)");
+        } catch (IOException e) {
+            log("TCP x " + address + ":" + port + " | " + e);
+        }
+    }
 }
