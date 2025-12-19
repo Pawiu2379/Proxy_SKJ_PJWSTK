@@ -1,27 +1,28 @@
-@echo off
+@echo on
+@echo "uruchomienie serwerów"
 
 REM WAW
-start "S1-TCP google:16001" cmd /k java TCPServer -port 16001 -key google -value 101
-start "S2-UDP apple:16002"  cmd /k java UDPServer -port 16002 -key apple  -value 102
+start "S1-TCP google:16001" cmd /k java TCPServer -port 16001 -key google -value chrome
+start "S2-UDP apple:16002"  cmd /k java UDPServer -port 16002 -key apple  -value safari
 
 REM WAW-B1
-start "S3-UDP microsoft:16003" cmd /k java UDPServer -port 16003 -key microsoft -value 103
-start "S4-TCP mozilla:16004"   cmd /k java TCPServer -port 16004 -key mozilla   -value 104
+start "S3-UDP microsoft:16003" cmd /k java UDPServer -port 16003 -key microsoft -value edge
+start "S4-TCP mozilla:16004"   cmd /k java TCPServer -port 16004 -key mozilla   -value firefox
 
 REM KRK-A
-start "S5-TCP opera:16005"   cmd /k java TCPServer -port 16005 -key opera   -value 105
-start "S6-UDP amazon:16006"  cmd /k java UDPServer -port 16006 -key amazon  -value 106
-start "S7-TCP youtube:16007" cmd /k java TCPServer -port 16007 -key youtube -value 107
+start "S5-TCP opera:16005"   cmd /k java TCPServer -port 16005 -key opera   -value opera-val
+start "S6-UDP amazon:16006"  cmd /k java UDPServer -port 16006 -key amazon  -value amazon-val
+start "S7-TCP youtube:16007" cmd /k java TCPServer -port 16007 -key youtube -value youtube-val
 
 REM GDN
-start "S8-UDP facebook:16008" cmd /k java UDPServer -port 16008 -key facebook -value 108
-start "S9-TCP twitter:16009"  cmd /k java TCPServer -port 16009 -key twitter  -value 109
-start "S10-UDP netflix:16010" cmd /k java UDPServer -port 16010 -key netflix  -value 110
-start "S11-TCP example:16011" cmd /k java TCPServer -port 16011 -key example  -value 111
+start "S8-UDP facebook:16008" cmd /k java UDPServer -port 16008 -key facebook -value meta
+start "S9-TCP twitter:16009"  cmd /k java TCPServer -port 16009 -key twitter  -value x
+start "S10-UDP netflix:16010" cmd /k java UDPServer -port 16010 -key netflix  -value netflix-val
+start "S11-TCP example:16011" cmd /k java TCPServer -port 16011 -key example  -value value
 
 
 REM ====== PROXY (od liści do roota) ======
-
+echo "start proxy liści" 
 REM Liście
 start "P2-waw-a:15011" cmd /k java Proxy -port 15011 -server 127.0.0.1 16001 -server 127.0.0.1 16002
 start "P3-waw-b1:15013" cmd /k java Proxy -port 15013 -server 127.0.0.1 16003 -server 127.0.0.1 16004
