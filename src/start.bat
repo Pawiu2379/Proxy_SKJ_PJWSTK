@@ -19,7 +19,7 @@ start "S8-UDP facebook:16008" cmd /k java UDPServer -port 16008 -key facebook -v
 start "S9-TCP twitter:16009"  cmd /k java TCPServer -port 16009 -key twitter  -value x
 start "S10-UDP netflix:16010" cmd /k java UDPServer -port 16010 -key netflix  -value netflix-val
 start "S11-TCP example:16011" cmd /k java TCPServer -port 16011 -key example  -value value
-
+start "S12-UDP microsoft:16012" cmd /k java UDPServer -port 16012 -key microsoft  -value office
 
 REM ====== PROXY (od liści do roota) ======
 echo "start proxy liści" 
@@ -36,7 +36,7 @@ start "P2-gdn-a:15031" cmd /k java Proxy -port 15031 -server 127.0.0.1 15032 -se
 
 REM Poziom P1
 start "P1-waw:15010" cmd /k java Proxy -port 15010 -server 127.0.0.1 15011 -server 127.0.0.1 15012
-start "P1-krk:15020" cmd /k java Proxy -port 15020 -server 127.0.0.1 15021
+start "P1-krk:15020" cmd /k java Proxy -port 15020 -server 127.0.0.1 15021 -server 127.0.0.1 
 start "P1-gdn:15030" cmd /k java Proxy -port 15030 -server 127.0.0.1 16008 -server 127.0.0.1 15031
 
 REM Root
