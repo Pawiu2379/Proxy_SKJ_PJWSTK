@@ -8,14 +8,13 @@ flowchart BT
     P2wa --> S1["S1-TCP<br>(google → chrome)"] & S2["S2-UDP<br>(apple → safari)"]
     P2wb --> P3wbb1["P3-waw-b1"]
     P3wbb1 --> S3["S3-UDP<br>(microsoft → edge)"] & S4["S4-TCP<br>(mozilla → firefox)"]
-    P1k --> P2ka["P2-krk-a"] & n1["S12-UDP<br>(microsoft → office)"]
+    P1k --> P2ka["P2-krk-a"]
     P2ka --> S5["S5-TCP<br>(opera → opera-browser)"] & S6["S6-UDP<br>(amazon → aws)"] & P3kaa1["P3-krk-a1"]
     P3kaa1 --> S7["S7-TCP<br>(youtube → video)"]
     P1g --> S8["S8-UDP<br>(facebook → social)"] & P2ga["P2-gdn-a"]
     P2ga --> P3gaa1["P3-gdn-a1"] & S11["S11-TCP<br>(example → test)"]
     P3gaa1 --> S9["S9-TCP<br>(twitter → x)"] & S10["S10-UDP<br>(netflix → streaming)"]
 
-    n1@{ shape: rect}
      P0:::proxy
      P1w:::proxy
      P1k:::proxy
@@ -28,7 +27,6 @@ flowchart BT
      S3:::udp
      S4:::tcp
      P2ka:::proxy
-     n1:::udp
      S5:::tcp
      S6:::udp
      P3kaa1:::proxy
