@@ -341,16 +341,16 @@ public class Proxy {
                 System.exit(0);
             case "PX" :
                 param = in.next();
-                input = new StringBuilder(command + " " + param);
+                input = new StringBuilder(param);
                 switch (param){
                     case "HELLO":
                         return "PX OK";
                     case "GET":
                         String param2 = in.next();
-                        input = new StringBuilder(" " + param2);
+                        input = input.append(" ").append(param2);
                         switch(param2){
                             case "NAMES":
-                                //TODO zwracanie listy wszystkich posiadanych kluczy;
+                                //zwracanie listy wszystkich posiadanych kluczy;
                                 output = new StringBuilder("PX OK");
                                 ArrayList<String> names = (ArrayList<String>) getKnownNames();
                                 names = new ArrayList<>(new LinkedHashSet<>(names));
@@ -369,6 +369,10 @@ public class Proxy {
                                             output = new StringBuilder(sendUdpCommand(n.address, n.port, input.toString()));
                                         }
                                         return output.toString();
+                                    }else{
+                                        for(NodeInfo p : knownProxis){
+                                            //TODO Przesląc do proxy
+                                        }
                                     }
                                 }
                         }
@@ -376,6 +380,7 @@ public class Proxy {
                         key = in.next();
                         val = in.next();
                         //TODO zmienienie klucza w podanym nodzie;
+
                 }
 
             default:
