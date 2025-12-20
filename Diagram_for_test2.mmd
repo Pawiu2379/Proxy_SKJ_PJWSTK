@@ -1,0 +1,75 @@
+flowchart TD
+%% ========= PROXY =========
+    P0["P0-core :15100"]
+    P1W["P1-waw :15110"]
+    P2WA["P2-waw-a :15111"]
+    P2WB["P2-waw-b :15112"]
+    P3WA1["P3-waw-a1 :15114"]
+
+    P1K["P1-krk :15120"]
+    P2KA["P2-krk-a :15121"]
+    P3KA1["P3-krk-a1 :15122"]
+
+    P1G["P1-gdn :15130"]
+    P2GA["P2-gdn-a :15131"]
+    P3GA1["P3-gdn-a1 :15132"]
+    P3GA2["P3-gdn-a2 :15133"]
+    P4GA21["P4-gdn-a2-1 :15134"]
+
+%% ========= SERVERS =========
+    S1["S1 TCP :16101 (dns=301)"]
+    S2["S2 UDP :16102 (ntp=302)"]
+    S3["S3 UDP :16103 (git=303)"]
+    S4["S4 TCP :16104 (mail=304)"]
+    S5["S5 UDP :16105 (snmp=305)"]
+
+    S6["S6 UDP :16106 (weather=306)"]
+    S7["S7 TCP :16107 (search=307)"]
+    S8["S8 TCP :16108 (video=308)"]
+    S9["S9 UDP :16109 (docs=309)"]
+
+    S10["S10 UDP :16110 (chat=310)"]
+    S11["S11 TCP :16111 (maps=311)"]
+    S12["S12 UDP :16112 (music=312)"]
+    S13["S13 TCP :16113 (store=313)"]
+    S14["S14 UDP :16114 (auth=314)"]
+
+%% ========= EDGES (TREE) =========
+    P0 --> P1W
+    P0 --> P1K
+    P0 --> P1G
+
+    P1W --> P2WA
+    P1W --> P2WB
+
+    P2WA --> S1
+    P2WA --> S2
+    P2WA --> P3WA1
+    P3WA1 --> S3
+
+    P2WB --> S4
+    P2WB --> S5
+
+    P1K --> P2KA
+    P2KA --> S6
+    P2KA --> S7
+    P2KA --> P3KA1
+    P3KA1 --> S8
+    P3KA1 --> S9
+
+    P1G --> S10
+    P1G --> P2GA
+    P2GA --> P3GA1
+    P2GA --> P3GA2
+    P3GA1 --> S11
+    P3GA1 --> S12
+    P3GA2 --> P4GA21
+    P4GA21 --> S13
+    P4GA21 --> S14
+
+%% ========= STYLES =========
+    classDef proxy fill:#eef,stroke:#335,stroke-width:1px;
+    classDef server fill:#efe,stroke:#353,stroke-width:1px;
+
+    class P0,P1W,P2WA,P2WB,P3WA1,P1K,P2KA,P3KA1,P1G,P2GA,P3GA1,P3GA2,P4GA21 proxy;
+    class S1,S2,S3,S4,S5,S6,S7,S8,S9,S10,S11,S12,S13,S14 server;
